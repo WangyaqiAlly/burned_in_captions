@@ -7,6 +7,7 @@ import logging
 logging.basicConfig()
 import time
 from datetime import datetime
+from sklearn.metrics import precision_recall_curve
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -17,9 +18,9 @@ tf.app.flags.DEFINE_string('train_dir', './Record/classifier_v0/',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_float('learning_rate', 0.01, "learning rate.")
 tf.app.flags.DEFINE_integer('batch_size', 64, "batch size")
-tf.app.flags.DEFINE_integer('eval_size', 64, "batch size")
+tf.app.flags.DEFINE_integer('eval_size', 640, "batch size")
 tf.app.flags.DEFINE_integer('max_steps', 500000, "max steps")
-tf.app.flags.DEFINE_boolean('resume', True,
+tf.app.flags.DEFINE_boolean('resume', False,
                             'resume from latest saved state')
 tf.app.flags.DEFINE_boolean('minimal_summaries', True,
                             'produce fewer summaries to save HD space')
@@ -166,14 +167,14 @@ def train( train_images, train_labels,test_images,test_labels):
             saver.save(sess, checkpoint_path, global_step=global_step)
 
         # Run validation periodically
-        if step > 1 and step % 100 == 0:
+        if step > 1 #and step % 100 == 0:
             top1_error_values=0.0
             for i in xrange(int(FLAGS.eval_size / FLAGS.batch_size)):
                 _, top1_error_value = sess.run([val_op, top1_error], { is_training: False })
-                top1_error_values+=top1_error_value
+                top1_error_values += top1_error_value
             acc_val = 1.0 - float(top1_error_values/i)
             tf.logging.info('Validation accuracy{:.3f}'.format(acc_val))
-        if step>1 and step % 100 == 0:
+        if step>1 #and step % 100 == 0:
             tf.logging.info("evaluate on test set....")
             _top1_error_tests =0.0
             _predictions_tests = []
@@ -182,7 +183,7 @@ def train( train_images, train_labels,test_images,test_labels):
             _tns=0.0
             _fns=0.0
             for i in xrange(int(FLAGS.test_size/FLAGS.batch_size)):
-                    _tp, _fp, _tn, _fn,_top1_error_test = sess.run( tp,fp,tn,fn ,top1_error_test, {is_training: False})
+                    _tp, _fp, _tn, _fn,_top1_error_test = sess.run( [tp,fp,tn,fn ,top1_error_test], {is_training: False})
                     _top1_error_tests += _top1_error_test
                     _tps +=_tp
                     _fps +=_fp
@@ -191,6 +192,7 @@ def train( train_images, train_labels,test_images,test_labels):
             acc_test = float( _top1_error_tests/i)
             recall_test = float(_tps) /float(_tps + _fns)
             precision_test = float(_tps) /float(_tps + _fps)
+
             tf.logging.info('Test accuracy:{:.3f} Presicion:{:.3f} recall:{:.3}f'.format(acc_test,precision_test,recall_test))
 
 
