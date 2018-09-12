@@ -1,0 +1,23 @@
+To get the data for CIFAR-10 follow these steps:
+
+1- wget https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz
+2- tar -xvf cifar-10-python.tar.gz
+3- Specify your data folder with the argument --dataFolder="foo/bar/"  (by default it is: "./cifar-10-batches-py/")
+
+Note: For more information on CIFAR-10 dataset, please visit https://www.cs.toronto.edu/~kriz/cifar.html
+
+
+You can change the code to generate images only from one class. Right now the code is generating only cat images, because we set "if tempLabel[i]==3:" in the loop where we read the images. The different CIFAR-10 classes are listed below:
+
+0: Airplane
+1: Automobile (excluding Trucks)
+2: Bird
+3: Cat
+4: Deer
+5: Dog
+6: Frog
+7: Horse 
+8: Ship
+9: Truck
+
+ 

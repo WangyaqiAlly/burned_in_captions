@@ -1,0 +1,290 @@
+# -*- coding: utf-8 -*- #
+
+from __future__ import unicode_literals
+
+import os
+import re
+import codecs
+import subprocess
+import glob
+import cv2
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw,ImageFont
+
+def _ms_to_stamp(ms):
+    try:
+        ms = int(ms)
+    except:
+        ms = 0
+    s = int(ms / 1000)
+    ms = ms % 1000
+    m = int(s / 60) % 60
+    h = int(s / 3600)
+    s = s % 60
+    return "%02d:%02d:%02d.%03d" % (h, m, s, ms)
+
+
+def _tplit(s, tag):
+    delimiter = '<' + tag
+    try:
+        return [(delimiter + item).strip() for item in re.split(delimiter, s, flags=re.I)][1:]
+    except:
+        return []
+
+
+def _lookup(s, pattern):
+    return re.search(pattern, s, flags=re.I)
+
+
+def _plang(item):
+    re_lang = _lookup(item, '<p(.+)class="([a-z]+)"')
+    position = _lookup(item,'<p(.+)position="([a-z]+)"')
+    alignment = _lookup(item,'<p(.+)alignment="([a-z]+)"')
+    print "item", item
+    if re_lang is None:
+        lang = 'ENCC'
+        # print item
+        start_p = _lookup(item, '<p[^>]*>')
+        if start_p is None:
+            start_p = _lookup(item, '<p(.*)>')
+
+        end_p = _lookup(item, '</P>')
+        # print  "start_p, end_p",start_p.group(), end_p.group(0)
+
+    else:
+        lang = re_lang.group(2)
+        start_p = _lookup(item, '<p(.+)class="([a-z]+)">')
+        end_p = _lookup(item, '</P>')
+
+    assert start_p != None and end_p != None and lang != None, "error in this subtitle:{}!!!!".format(item)
+    content = item[start_p.end():end_p.start()]
+    # print "contnent",content
+    content = content.replace('\n', '')
+    content = re.sub('<br ?/?>', '\n', content, flags=re.I)
+    content = re.sub('<.*?>', '', content)
+    # print "2:", content
+    content = content.strip()
+    # print "3:", content
+    return [lang, content]
+
+
+class SamitizeError(Exception):
+
+    messages = (
+        "Cannot access to the input file.",
+        "Cannot find correct encoding for the input file.",
+        "Cannot parse the input file. It seems not to be a valid SAMI file.\n(Verbose option may show you the position the error occured in)",
+        "Cannot convert into the specified format. (Suppored formats : vtt, plain)",
+        "Unknown error occured."
+    )
+
+    def __init__(self, code):
+        try:
+            code = int(code)
+            if code > -1 or code < -5:
+                code = -5
+        except:
+            code = -5
+        self.code = code
+        self.message = self.messages[-(code + 1)]
+
+    def __repr__(self):
+        return "{} ({})".format(self.message, self.code)
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __unicode__(self):
+        return self.__str__()
+
+
+class Subtitle:
+
+    def __init__(self, content, start, end=0):
+        self.content = content
+        self.start = start
+        self.end = end
+        self.langs = list(self.content.keys())
+        self.candidate_key = self.langs[0] if len(self.langs) else None
+        self.representative = self.content[self.candidate_key] if self.candidate_key else ""
+
+    def is_valid(self, lang):
+        return lang in self.content and self.content[lang] != '&nbsp;' and self.content[lang] != '&#160;'
+
+    def format_to(self, target, lang='ENCC'):
+        if lang not in self.content:
+            return self.summary()
+        if target == 'vtt':
+            return "{} --> {}\n{}".format(_ms_to_stamp(self.start), _ms_to_stamp(self.end), self.content[lang])
+        elif target == 'plain':
+            return "{}".format(self.content[lang])
+        elif target == 'frame':
+
+            return [self.start,self.end,self.content[lang]]
+        return self.summary()
+
+    def summary(self):
+        text = "[{}:{}] {}".format(self.start, self.end, self.representative)
+        try:
+            return text.encode('utf-8')
+        except:
+            return text
+
+    def __repr__(self):
+        return self.summary()
+
+    def __str__(self):
+        return self.summary()
+
+    def __unicode__(self):
+        return self.summary()
+
+
+class Smi:
+
+    PADDING = 60000
+
+    def __init__(self, filepath, encoding=None):
+        self.raw_text = ""
+        self.subtitles = []
+        if 1:#not os.path.isfile(filepath):
+            self.raw_text = filepath.decode('utf-8')
+            # raise SamitizeError(-1)
+        # elif encoding:
+        #     try:
+        #         file = codecs.open(filepath, encoding=encoding)
+        #         self.raw_text = file.read()
+        #         file.close()
+        #     except:
+        #         raise SamitizeError(-2)
+        # else:
+        #     detector = ['/usr/bin/env', 'uchardet', filepath]
+        #     encoding_detected = subprocess.check_output(detector).decode('utf-8').strip().lower()
+        #     try:
+        #         file = codecs.open(filepath, encoding=encoding_detected)
+        #         self.raw_text = file.read()
+        #         file.close()
+        #     except:
+        #         try:
+        #             file = codecs.open(filepath, encoding='cp949')
+        #             self.raw_text = file.read()
+        #             file.close()
+        #         except:
+        #             raise SamitizeError(-2)
+
+        self.raw_text = self.raw_text.replace('\r\n', '\n')
+        self.raw_text = self.raw_text.replace('\n\r', '\n')
+        initial = True
+        # print "rawtext:", self.raw_text
+        for item in _tplit(self.raw_text, 'sync'):
+            # print "item",item
+            timecode = int(_lookup(item, '<sync start="([0-9]+)"').group(1))
+            # print "timecode:",timecode
+            content = dict(map(_plang, _tplit(item, 'p')))
+            # print "content:",content
+            if not initial:
+                self.subtitles[-1].end = timecode
+            self.subtitles.append(Subtitle(content, timecode))
+            initial = False
+        self.subtitles[-1].end = self.subtitles[-1].start + self.PADDING
+
+    def convert(self, target, lang='ENCC'):
+        results = []
+        if target == 'vtt':
+            results.append("WEBVTT")
+            index = 1
+            for subtitle in self.subtitles:
+                print subtitle
+                if subtitle.is_valid(lang):
+                    results.append("{}\n{}".format(index, subtitle.format_to(target, lang)))
+                    index += 1
+
+            result = "\n\n".join(results)
+        elif target == 'plain':
+            for subtitle in self.subtitles:
+                if subtitle.is_valid(lang):
+                    results.append(subtitle.format_to(target, lang))
+            result = "\n".join(results)
+        elif target == 'frame':
+            for subtitle in self.subtitles:
+                if subtitle.is_valid(lang) and len(subtitle.content[lang])>0:
+                    results.append(subtitle.format_to(target, lang))
+                    print "subtitle.content[lang]:",subtitle.content[lang]
+        else:
+            raise SamitizeError(-4)
+        return results
+
+#
+# smi = Smi('mi.smi')
+# # print(smi.subtitles[0].content['ENCC'])
+# # vtt_text = smi.convert('vtt', lang='ENCC')
+# # plain_text = smi.convert('plain', lang='ENCC')
+# frame_text = smi.convert('frame', lang='ENCC')
+#
+# print len(frame_text),frame_text[0]
+# # for caption in vtt_text:
+# #     print caption
+# ##### add text to frames #####
+#
+# filenames = glob.glob('ja.mp4')
+# #filenames += glob.glob('agave50465396_16438265_H264_1000_ja.mp4')
+# save_path = 'frames'
+# if not os.path.exists(save_path):
+#     os.makedirs(save_path)
+# cap = cv2.VideoCapture(filenames[0])
+# fps = int(cap.get(cv2.CAP_PROP_FPS))
+# fps_f = cap.get(cv2.CAP_PROP_FPS)
+# total_len =  cap.get(cv2.CAP_PROP_FRAME_COUNT)
+#
+# print fps,total_len, total_len/fps
+#
+#
+# def process_img(img, title,path):
+#     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+#     img =  Image.fromarray(img)
+#     draw = ImageDraw.Draw( img )
+#     w, h = img.size
+#
+#     font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeSans.ttf", 15)
+#     text_w, text_h = draw.textsize(title, font)
+#     draw.text(((w - text_w) // 2, h - text_h), title, (255,255,255), font=font)
+#     # draw.text((REQ_WIDTH, REQ_HEIGHT), title, (255,255,255), font=font)
+#
+#     img.save(path)
+#
+#     return img
+#
+# for caption in frame_text:
+#     start_frame = int(fps_f * caption[0] / 1000.0)
+#     end_frame = int(fps_f * caption[1] / 1000.0)
+#     duration = end_frame-start_frame
+#     print "duration:", duration
+#     cap.set(cv2.CAP_PROP_POS_FRAMES, int(start_frame+end_frame/2))
+#     ret, frame = cap.read()
+#     process_img(frame,caption[2],save_path+"/test_{}.png".format(start_frame))
+#     # cv2.putText(frame, caption[2],bottomLeftOrigin=True)
+#     # cv2.imwrite(save_path+"/test_{}.jpg".format(start_frame), frame)
+#     assert 0
+#
+#     # Set waitKey
+#     # cv2.waitKey()
+#     # plt.(frame, cmap='gray')
+#     # plt.show()
+#     # assert 0
+# # cv2.imwrite("path_where_to_save_image", frame)
+# #
+# # cnt = 0
+# # total_frames = 0
+# # while(cap.isOpened() and cnt < end_f):
+# #     ret, frame = cap.read()
+# #     if cnt > start_f and cnt % (int(fps)*10) == 0:
+# #         print 'processing {}th frame'.format(cnt)
+# #         cv2.imwrite(os.path.join(save_path,str(cnt)+'.jpg'),frame)
+# #         total_frames +=1
+# #     cnt += 1
+# # print "done! total frames: {}".format(total_frames)
+# cap.release()
+# cv2.destroyAllWindows()
+

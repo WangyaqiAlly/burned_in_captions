@@ -1,0 +1,28 @@
+Directory Introduction:
+- SELECT_STRATEGY: experiment-1, the goal is to choose the best metric function for sample selecting.
+- ABCD: experiment-2, the goal is to compare the importance of correctness and confidence.
+- BANDWIDTH: experiment-3, the goal is to test the performance on accuracy under the bandwith constrain.
+
+File Introduction:
+(python)
+- In each experiment, the python files are almost same, we use bash script to control different functions.
+- pre_processing.py: Divide dataset into 10 folds and store them in ./data.
+- data_utils_CIFAR10.py: Download the dataset.
+- retinaBase.py: Python module corresponding for interacting with dataset and give an abstract data structure to higher level.
+- DataAugmentation.py: Multiprocessing data augmentation code during training to reduce overfitting. 
+- retinaNode.py: Higher level python module corresponding for each training node.
+- retinaUpload.py: Python module for simulating network condition, transporting data from edge node to central node by specific ratio.
+- test.py: Main file in experiment, containing logic control part.
+- draw_pictures.py: Reporting file, corresponding to drawing experiment result.
+(bash)
+- init_script.bash: Initialization experiment with 10% of data.
+- baseline_script.bash: Baseline experiment, no any filtering.
+- random_50_script.bash, certainty_50_script.bash, cross_entropy_50_script.bash, entropy_50_script.bash, snr1_50_script.bash, snr2_50_script.bash: Different strategies for experiment-1
+- A_50_script.bash, B_50_script.bash, C_50_script.bash, D_50_script.bash: Testing A, B, C, D strategies for experiment-2
+- bandwidth_standard_30_script.bash, bandwidth_optimized_wr_30_script.bash, bandwidth_optimized_abcd_30_script.bash: Corresponding for randomly selecting strategy, selecting based on correctness only and selecting based on correctness and confidence in experiment-3.
+
+How to Run:
+- Step 1: Divide the data into folds `cd SELECT_STRATEGY; python pre_processing.py`
+- Step 2: Initialize model with 20% of data: `./init_script.bash`
+- Step 3: Run some strategy(e.g. baseline group): `./baseline_script.bash` (Here you may change the GPU#, epoch#, batch_size#, etc.)
+- Step 4: Collect results: `python draw_pictures.py` (Here you may change the group name to show) and then check the 'text_result.txt' file.

@@ -1,0 +1,9 @@
+The data is located at:
+http://hydra-04:/img_align_celeba.zip
+
+The non-trainable saved model is located at: 
+http://hydra-04:/model.proto.ali.200k
+
+The trainable saved model is located at:
+http://hydra-04:/model-54200.data-00000-of-00001
+http://hydra-04:/model-54200.index

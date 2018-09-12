@@ -1,0 +1,14 @@
+*.png
+*.jpg
+*.pkl
+classifier/Record/
+data/
+*.avi
+*.mp4
+*.smi
+*model*
+*.logs
+*.meta
+*.index
+*.awscigpu02
+

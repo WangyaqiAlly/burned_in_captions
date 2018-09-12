@@ -1,0 +1,66 @@
+import argparse
+import numpy as np
+import tensorflow as tf
+from EdgeNode import EdgeNode
+import os
+import coloredlogs
+import cv2
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-id', '--edge_id', type=str, default='1',
+                        help='list of ids')
+    parser.add_argument('-t', '--start_time', type=int, default=0,
+                        help='Start folder, 0 by default')
+    parser.add_argument('-bz', '--batch_size', type=int, default=100,
+                        help='The batch size, 100 by default.')
+    parser.add_argument('-type', '--image_type', type=str, default='mnist',
+                        choices=['mnist', 'imageNet'],
+                        help='The type of input images, MNIST by default.')
+    parser.add_argument('-dir', '--graph_dir', type=str,
+                        default='/home2/ryang2/mledge/sandbox/ryang2/edgeGAN/graph/imagenet-10-32x32-fold',
+                        help='The root directory of the input graph,')
+    parser.add_argument('-max_e', '--max_edge_epoch', type=int, default=10,
+                        help='Maximal epoch number that Edge node runs, 100 by default.')
+    parser.add_argument('-elr', '--edge_learning_rate', type=float, default=0.0001,
+                        help='The initial learning rate of the edge nodes')
+    parser.add_argument('-rp', '--record_path_prefix', type=str,
+                        default='/home2/ryang2/mledge/sandbox/ryang2/edgeGAN/record',
+                        help='The path prefix for recording the model.')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='whether print debug info')
+
+    args = parser.parse_args()
+
+    if not args.debug:
+        coloredlogs.install(level='INFO')
+    else:
+        coloredlogs.install(level='DEBUG')
+
+    run_config = tf.ConfigProto()
+    run_config.gpu_options.allow_growth = True
+    sess = tf.Session(config=run_config)
+    is_first_time = True
+
+    print '========BEGIN SESSION========='
+    snapshot_path = os.path.join(args.record_path_prefix, args.edge_id, 'model.ckpt')
+    edge_proc = EdgeNode(sess, args.graph_dir, args.edge_id, args.image_type, 1, args.start_time,
+                         snapshot_path, args.batch_size, args.edge_learning_rate
+                         )
+    print '==========Construction finished============'
+
+    edge_proc.initialize()
+    print '==========Initialization finished ========='
+    for folder in range(args.start_time, 10):
+        edge_proc.restore_model(snapshot_path)
+        print '========== Restore Mode finished =============='
+
+        edge_proc.update_data(1, folder)
+
+        edge_proc.train(args.max_edge_epoch)
+        print '========== Train finished ========='
+
+        edge_proc.save_model(snapshot_path)
+        print '========== Save Mode finished =============='
+
+
