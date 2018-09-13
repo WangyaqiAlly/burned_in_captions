@@ -28,11 +28,12 @@ tf.app.flags.DEFINE_string('test_data_path', '../data/tfdataset/ori_size/',
                            'where to store the dataset')
 #tf.app.flags.DEFINE_string('site', 'site1_test',
 #                           'where to store the dataset')
-tf.app.flags.DEFINE_integer('train_size', 30000, "The number of training examples{52160}")
+tf.app.flags.DEFINE_integer('train_size', 52160, "The number of training examples{52160}")
 tf.app.flags.DEFINE_integer('test_size', 13040, "The number of validation examples")
 tf.app.flags.DEFINE_integer('cls_num', 2,'how many classes')
 tf.app.flags.DEFINE_integer('img_width',224,'')
 tf.app.flags.DEFINE_integer('img_height',224,'')
+tf.app.flags.DEFINE_integer('num_threads',4,'how many threads for data reading')
 
 
 def inputs(batch_size=100,
@@ -41,10 +42,16 @@ def inputs(batch_size=100,
     if train:
         filenames = sorted(glob.glob(os.path.join(FLAGS.train_data_path,'*', 'train*')))
         # print(filenames)
-        filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs)
-        example_list = [read(filename_queue, train, False,i) for i in  range(len(filenames))]
+        example_list=[]
+        file_batch_size = int(len(filenames)/FLAGS.num_threads)
+        for i in xrange(FLAGS.num_threads):
+            filename_queue = tf.train.string_input_producer(filenames[i*file_batch_size:(i+1)*file_batch_size], num_epochs=num_epochs,shuffle=True)
+            example_list +=[read(filename_queue, train, False,i)]
+        if (i+1)*file_batch_size < len(filenames):
+            filename_queue = tf.train.string_input_producer(filenames[(i + 1) * file_batch_size:len(filenames)],num_epochs=num_epochs, shuffle=True)
+            example_list += [read(filename_queue, train, False, i)]
         # image, label = read(filename_queue, train)
-        num_examples = int(FLAGS.train_size)
+        num_examples = int(FLAGS.train_size/FLAGS.num_threads)
         # print(example_list)
         tf.logging.info('train inputs: building queue from :{}....'.format(filenames))
         tf.logging.info("image shape:{} , label shape:{}".format(example_list[0][0].shape, example_list[0][1].shape))
@@ -52,10 +59,18 @@ def inputs(batch_size=100,
                            shuffle=shuffle)
     else:
         filenames = sorted(glob.glob(os.path.join(FLAGS.test_data_path,'*', 'test*')))
-        filename_queue = tf.train.string_input_producer(filenames, num_epochs=num_epochs)
-        example_list = [read(filename_queue, train, False,i) for  i in range(len(filenames))]
+        file_batch_size = int(len(filenames)/FLAGS.num_threads)
+        example_list=[]
+        for i in xrange(FLAGS.num_threads):
+            filename_queue = tf.train.string_input_producer(filenames[i * file_batch_size:(i + 1) * file_batch_size],
+                                                            num_epochs=num_epochs, shuffle=True)
+            example_list += [read(filename_queue, train, False, i)]
+        if (i + 1) * file_batch_size < len(filenames):
+            filename_queue = tf.train.string_input_producer(filenames[(i + 1) * file_batch_size:len(
+                filenames)], num_epochs = num_epochs, shuffle = True)
+            example_list += [read(filename_queue, train, False, i)]
         # image, label = read(filename_queue, train)
-        num_examples = int(FLAGS.test_size)
+        num_examples = int(FLAGS.test_size/FLAGS.num_threads)
         tf.logging.info('test inputs: building queue from :{}....'.format(filenames))
         tf.logging.info("image shape:{} , label shape:{}".format(example_list[0][0].shape, example_list[0][1].shape))
         return generate_batch_join(example=example_list, dataset_size=num_examples, batch_size=batch_size,

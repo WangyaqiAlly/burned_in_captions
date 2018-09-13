@@ -67,12 +67,12 @@ def train( train_images, train_labels,test_images,test_labels):
                        bottleneck=True,
                        num_blocks=[3, 4, 6, 3])  # resnet-50
     predictions_test = tf.nn.softmax(logits_test)
-    test_labels_onehot  = tf.one_hot(test_labels,2)
-    tp = tf.metrics.true_positives(test_labels_onehot,predictions_test)
-    fp = tf.metrics.false_negatives(test_labels_onehot,predictions_test)
-    tn = tf.metrics.true_negatives(test_labels_onehot,predictions_test)
-    fn = tf.metrics.false_negatives(test_labels_onehot,predictions_test)
-
+    pred_bin_test = tf.argmax(logits_test,1)
+    with tf.name_scope("evaluate_metric"):
+        precision, precision_update = tf.metrics.precision(test_labels,pred_bin_test)
+        recall,recall_update = tf.metrics.recall(test_labels,pred_bin_test)
+        accuracy,accuracy_update = tf.metrics.accuracy(test_labels,pred_bin_test)
+    evaluate_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,scope="evaluate_metric")
 
     top1_error_test = top_k_error(predictions_test, test_labels, 1)
 
@@ -113,13 +113,14 @@ def train( train_images, train_labels,test_images,test_labels):
 
     summary_op = tf.summary.merge_all()
 
-    init = tf.initialize_all_variables()
-
+    # init = tf.initialize_all_variables()
+    init = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     sess = tf.Session(config=tf.ConfigProto(log_device_placement=False))
     sess.run(init)
     tf.train.start_queue_runners(sess=sess)
-
     summary_writer = tf.summary.FileWriter(FLAGS.train_dir, sess.graph)
+
+    evaluate_vars_initializer = tf.variables_initializer(var_list=evaluate_vars)
 
     if FLAGS.resume:
         latest = tf.train.latest_checkpoint(FLAGS.train_dir)
@@ -167,33 +168,24 @@ def train( train_images, train_labels,test_images,test_labels):
             saver.save(sess, checkpoint_path, global_step=global_step)
 
         # Run validation periodically
-        if step > 1 #and step % 100 == 0:
+        if step == 1: #and step % 100 == 0:
             top1_error_values=0.0
             for i in xrange(int(FLAGS.eval_size / FLAGS.batch_size)):
                 _, top1_error_value = sess.run([val_op, top1_error], { is_training: False })
                 top1_error_values += top1_error_value
             acc_val = 1.0 - float(top1_error_values/i)
             tf.logging.info('Validation accuracy{:.3f}'.format(acc_val))
-        if step>1 #and step % 100 == 0:
+        if step >1: #and step % 100 == 0:
             tf.logging.info("evaluate on test set....")
+            sess.run(evaluate_vars_initializer)
             _top1_error_tests =0.0
-            _predictions_tests = []
-            _tps=0.0
-            _fps=0.0
-            _tns=0.0
-            _fns=0.0
             for i in xrange(int(FLAGS.test_size/FLAGS.batch_size)):
-                    _tp, _fp, _tn, _fn,_top1_error_test = sess.run( [tp,fp,tn,fn ,top1_error_test], {is_training: False})
+                    _,_,_,_top1_error_test = sess.run([precision_update,recall_update,accuracy_update, top1_error_test], {is_training: False})
                     _top1_error_tests += _top1_error_test
-                    _tps +=_tp
-                    _fps +=_fp
-                    _tns += _tn
-                    _fns += _fn
-            acc_test = float( _top1_error_tests/i)
-            recall_test = float(_tps) /float(_tps + _fns)
-            precision_test = float(_tps) /float(_tps + _fps)
 
-            tf.logging.info('Test accuracy:{:.3f} Presicion:{:.3f} recall:{:.3}f'.format(acc_test,precision_test,recall_test))
+            _precision,_recall,_accuracy = sess.run([precision,recall,accuracy], {is_training: False})
+            _acc_test =1.0- float(_top1_error_tests) /i
+            tf.logging.info('Test accuracy:{:.3f} Presicion:{:.3f} recall:{:.3}f, acc_notformtf:{:.3f}'.format(_accuracy,_precision,_recall,_acc_test))
 
 
 
