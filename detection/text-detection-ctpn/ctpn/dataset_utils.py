@@ -96,8 +96,16 @@ def read(filename_queue,train,generated,thread_id):
     #label = tf.one_hot(tf.cast(features['label'], tf.int32), 20)
     #print('label before transform',label.shape)
     # image = transform(image) if train else image
-    image = image_preprocessing(image, [], train, thread_id)
+    if FLAGS.network == 'resnet':
+        image = image_preprocessing(image, [], train, thread_id)
     # image = image /255.0 - 0.5
+    else:
+        image = tf.expand_dims(image, 0)
+        image = tf.image.resize_bilinear(image, (FLAGS.img_height, FLAGS.img_width),
+                                         align_corners=True)
+        image = tf.squeeze(image, [0])
+        return image
+
     label = label #tf.one_hot(tf.cast(features['label'], tf.int32),  FLAGS.cls_num)
     return image, label   #,language
 

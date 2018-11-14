@@ -71,10 +71,11 @@ if __name__ == '__main__':
     sess.run(tf.global_variables_initializer())
 
     input_img = sess.graph.get_tensor_by_name('Placeholder:0')
+    input_iminfo = sess.graph.get_tensor_by_name('Placeholder_1:0')
     output_cls_prob = sess.graph.get_tensor_by_name('Reshape_2:0')
     output_box_pred = sess.graph.get_tensor_by_name('rpn_bbox_pred/Reshape_1:0')
 
-    im_names = glob.glob(os.path.join('/home/CORP/yaqi.wang/pycharm/data/frames_with_caption', '*', '*.jpg'))
+    im_names = glob.glob(os.path.join('/home/CORP/yaqi.wang/pycharm/detection/text-detection-ctpn/data/test_img', '*.jpg'))
 
     for im_name in im_names:
         print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')

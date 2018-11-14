@@ -6,17 +6,17 @@ ANCHOR_SCALES: [16]
 NCLASSES: 2
 USE_GPU_NMS: True
 TRAIN:
-  restore: 0
-  max_steps: 50000
+  restore: 1
+  max_steps: 5000000
   SOLVER: Adam
   OHEM: False
   RPN_BATCHSIZE: 300
   BATCH_SIZE: 300
   LOG_IMAGE_ITERS: 100
-  DISPLAY: 10
-  SNAPSHOT_ITERS: 1000
+  DISPLAY: 50
+  SNAPSHOT_ITERS: 10000
   HAS_RPN: True
-  LEARNING_RATE: 0.00001
+  LEARNING_RATE: 0.0001
   MOMENTUM: 0.9
   GAMMA: 0.1
   STEPSIZE: 30000
@@ -34,5 +34,5 @@ TRAIN:
 TEST:
   HAS_RPN: True
   DETECT_MODE: H
-  checkpoints_path: checkpoints/
+  checkpoints_path: model/textline_v2/
   # checkpoints_path: output/ctpn_end2end/voc_2007_trainval

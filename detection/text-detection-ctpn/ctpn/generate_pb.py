@@ -12,14 +12,14 @@ from lib.fast_rcnn.config import cfg, cfg_from_file
 
 if __name__ == "__main__":
     cfg_from_file('ctpn/text.yml')
-
+    cfg.TEST.checkpoints_path
     config = tf.ConfigProto(allow_soft_placement=True)
     sess = tf.Session(config=config)
     net = get_network("VGGnet_test")
     print(('Loading network {:s}... '.format("VGGnet_test")), end=' ')
     saver = tf.train.Saver()
     try:
-        ckpt = tf.train.get_checkpoint_state(cfg.TEST.checkpoints_path)
+        ckpt = tf.train.get_checkpoint_state('model/textline_v3')
         print('Restoring from {}...'.format(ckpt.model_checkpoint_path), end=' ')
         saver.restore(sess, ckpt.model_checkpoint_path)
         print('done')
@@ -30,12 +30,14 @@ if __name__ == "__main__":
     print('all nodes are:\n')
     graph = tf.get_default_graph()
     input_graph_def = graph.as_graph_def()
-    node_names = [node.name for node in input_graph_def.node]
-    for x in node_names:
-        print(x)
-    output_node_names = 'Reshape_2,rpn_bbox_pred/Reshape_1'
+    node_names = [node for node in input_graph_def.node]
+    # node_values = [node.value() for node in input_graph_def.node]
+    # for op in sess.graph.get_operations():
+    #     print(op.name,op.values())
+    # assert 0
+    output_node_names = 'Reshape_2,rpn_bbox_pred/Reshape_1,rois/Reshape'
     output_graph_def = convert_variables_to_constants(sess, input_graph_def, output_node_names.split(','))
-    output_graph = 'data/ctpn.pb'
+    output_graph = 'data/textline_v3.pb'
     with tf.gfile.GFile(output_graph, 'wb') as f:
         f.write(output_graph_def.SerializeToString())
     sess.close()

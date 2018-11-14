@@ -100,13 +100,13 @@ def build_voc_dirs(outdir):
 
 
 if __name__ == '__main__':
-    _outdir = 'TEXTVOC/VOC2007'
+    _outdir = '/home/CORP/yaqi.wang/pycharm/data/pngdataset/ctpn/ther/TEXTVOC/VOC2007'
     _draw = bool(0)
     _dest_label_dir, _dest_img_dir, _dest_set_dir = build_voc_dirs(_outdir)
     _doncateothers = bool(1)
     for dset in ['train']:
-        _labeldir = 'label_tmp'
-        _imagedir = 're_image'
+        _labeldir = '/home/CORP/yaqi.wang/pycharm/data/pngdataset/ctpn/ther/label_tmp'
+        _imagedir = '/home/CORP/yaqi.wang/pycharm/data/pngdataset/ctpn/ther/re_image'
         class_sets = ('text', 'dontcare')
         class_sets_dict = dict((k, i) for i, k in enumerate(class_sets))
         allclasses = {}
@@ -156,7 +156,7 @@ if __name__ == '__main__':
         print('~~~~~~~~~~~~~~~~~~~')
         print(allclasses)
         print('~~~~~~~~~~~~~~~~~~~')
-        shutil.copyfile(os.path.join(_dest_set_dir, 'train.txt'), os.path.join(_dest_set_dir, 'val.txt'))
+        shutil.copyfile(os.path.join(_dest_set_dir, 'train.txt'), os.path.join(_dest_set_dir, 'test.txt'))
         shutil.copyfile(os.path.join(_dest_set_dir, 'train.txt'), os.path.join(_dest_set_dir, 'trainval.txt'))
         for cls in class_sets:
             shutil.copyfile(os.path.join(_dest_set_dir, cls + '_train.txt'),
